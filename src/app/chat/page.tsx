@@ -1,13 +1,13 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import ChatLayout from '@/components/chat/chat-layout';
 import SelectRecipient from '@/components/chat/select-recipient';
 import type { Message, MessageFromDb } from '@/lib/types';
-import { useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, where, getDocs, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
+import { doc, collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 
 export default function ChatPage() {
@@ -66,12 +66,13 @@ export default function ChatPage() {
   // Real-time listener for messages
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !conversationId) return null;
-    return query(collection(firestore, 'conversations', conversationId, 'messages'), orderBy('timestamp', 'asc'));
-  }, [firestore, conversationId]);
+    const conversationRef = doc(firestore, 'users', user.uid, 'conversations', conversationId);
+    return query(collection(conversationRef, 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, conversationId, user]);
   
   const { data: dbMessages } = useCollection<MessageFromDb>(messagesQuery);
 
-  const messages: Message[] = useMemoFirebase(() => {
+  const messages: Message[] = useMemo(() => {
     if (!dbMessages || !user) return [];
     return dbMessages.map(msg => ({
       id: msg.id,
@@ -85,15 +86,27 @@ export default function ChatPage() {
 
 
   const handleSendMessage = async (content: string) => {
-    if (!firestore || !user || !conversationId) return;
+    if (!firestore || !user || !recipient || !conversationId) return;
 
     try {
-      const messagesColRef = collection(firestore, 'conversations', conversationId, 'messages');
-      await addDoc(messagesColRef, {
+      // Add message to sender's conversation
+      const senderConvRef = doc(firestore, 'users', user.uid, 'conversations', conversationId);
+      await addDoc(collection(senderConvRef, 'messages'), {
         content,
         senderId: user.uid,
+        recipientId: recipient.uid,
         timestamp: serverTimestamp(),
       });
+
+      // Add message to recipient's conversation
+      const recipientConvRef = doc(firestore, 'users', recipient.uid, 'conversations', conversationId);
+      await addDoc(collection(recipientConvRef, 'messages'), {
+        content,
+        senderId: user.uid,
+        recipientId: recipient.uid,
+        timestamp: serverTimestamp(),
+      });
+
     } catch (error) {
       console.error("Error sending message:", error);
     }
