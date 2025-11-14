@@ -1,10 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { app } from './config';
 import { FirebaseProvider, type FirebaseContextType } from './provider';
+import type { FirebaseApp } from 'firebase/app';
+
 
 const FirebaseClientContext = createContext<FirebaseContextType | null>(null);
 
@@ -28,6 +30,10 @@ export function FirebaseClientProvider({
       app,
     };
   }, []);
+
+  if (!firebaseContextValue) {
+    return null;
+  }
 
   return (
     <FirebaseClientContext.Provider value={firebaseContextValue}>

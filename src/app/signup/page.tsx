@@ -12,11 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { useFirebase } from '@/firebase/client-provider';
+import { useFirebase } from '@/firebase';
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be at most 20 characters"),
-  password: z.string().min(1, "Password is required"),
+  password: z.string(),
 });
 
 export default function SignUpPage() {

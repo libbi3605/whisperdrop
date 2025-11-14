@@ -11,7 +11,7 @@ export interface FirebaseContextType {
   app: FirebaseApp;
 }
 
-const FirebaseContext = createContext<FirebaseContextType | null>('');
+const FirebaseContext = createContext<FirebaseContextType | null>(null);
 
 export function FirebaseProvider({
   children,
@@ -20,6 +20,9 @@ export function FirebaseProvider({
   children: React.ReactNode;
   value: FirebaseContextType;
 }) {
+  if (!value) {
+    return <>{children}</>;
+  }
   return (
     <FirebaseContext.Provider value={value}>
       {children}
