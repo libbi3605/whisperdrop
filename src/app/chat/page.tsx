@@ -9,6 +9,7 @@ import type { Message, MessageFromDb } from '@/lib/types';
 import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
 import { doc, collection, query, where, serverTimestamp, orderBy, addDoc, or } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function ChatPage() {
   const { user, isUserLoading } = useUser();
@@ -34,7 +35,7 @@ export default function ChatPage() {
       setRecipientError("You can't start a conversation with yourself.");
       return;
     }
-
+    
     // For testing: bypass user existence check.
     // Create a placeholder UID for the recipient.
     const recipientUid = `temp_${username}`;
@@ -44,7 +45,8 @@ export default function ChatPage() {
 
   // Real-time listener for messages between the current user and the recipient
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUserUsername || !recipient) return null;
+    if (!firestore || !currentUserUsername || !recipient?.username) return null;
+    
     const messagesRef = collection(firestore, 'messages');
     
     // This query fetches messages where the current user is the sender AND the recipient is correct
@@ -57,7 +59,7 @@ export default function ChatPage() {
       orderBy('timestamp', 'asc')
     );
     return q;
-  }, [firestore, currentUserUsername, recipient]);
+  }, [firestore, currentUserUsername, recipient?.username]);
   
   const { data: dbMessages } = useCollection<MessageFromDb>(messagesQuery);
 
@@ -80,21 +82,16 @@ export default function ChatPage() {
   const handleSendMessage = async (content: string) => {
     if (!firestore || !user || !recipient || !currentUserUsername) return;
 
-    const messageData = {
+    const messagesColRef = collection(firestore, 'messages');
+
+    addDocumentNonBlocking(messagesColRef, {
       content,
       senderId: user.uid,
       senderUsername: currentUserUsername,
       recipientId: recipient.uid,
       recipientUsername: recipient.username,
       timestamp: serverTimestamp(),
-    };
-
-    try {
-        const messagesColRef = collection(firestore, 'messages');
-        await addDoc(messagesColRef, messageData);
-    } catch(error) {
-        console.error("Error sending message:", error);
-    }
+    });
   };
 
   useEffect(() => {
@@ -103,7 +100,7 @@ export default function ChatPage() {
     }
   }, [user, isUserLoading]);
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || !currentUserUsername) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
@@ -115,7 +112,7 @@ export default function ChatPage() {
     return (
        <SelectRecipient 
         onRecipientSelect={handleRecipientSelect} 
-        currentUserUsername={currentUserUsername || user.email || 'You'}
+        currentUserUsername={currentUserUsername}
         error={recipientError}
       />
     );
