@@ -9,12 +9,11 @@ import ChatInput from './chat-input';
 
 interface ChatLayoutProps {
   messages: Message[];
-  onSendMessage: (content: string) => void;
   recipientUsername: string;
-  currentUserUsername?: string | null;
+  currentUserUsername: string;
 }
 
-export default function ChatLayout({ messages, onSendMessage, recipientUsername }: ChatLayoutProps) {
+export default function ChatLayout({ messages, recipientUsername, currentUserUsername }: ChatLayoutProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,7 +38,10 @@ export default function ChatLayout({ messages, onSendMessage, recipientUsername 
       </main>
       <div className="p-4 md:p-6 border-t bg-background/80 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto">
-          <ChatInput onSendMessage={onSendMessage} />
+          <ChatInput 
+            recipientUsername={recipientUsername}
+            currentUserUsername={currentUserUsername}
+          />
         </div>
       </div>
     </div>

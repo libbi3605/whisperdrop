@@ -7,9 +7,8 @@ import ChatLayout from '@/components/chat/chat-layout';
 import SelectRecipient from '@/components/chat/select-recipient';
 import type { Message, MessageFromDb } from '@/lib/types';
 import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { doc, collection, query, serverTimestamp, orderBy, addDoc, or, where } from 'firebase/firestore';
+import { doc, collection, query, or, where, orderBy } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function ChatPage() {
   const { user, isUserLoading } = useUser();
@@ -43,13 +42,10 @@ export default function ChatPage() {
 
   // Real-time listener for messages between the current user and the recipient
   const messagesQuery = useMemoFirebase(() => {
-    // Only construct the query if we have all the required information
     if (!firestore || !currentUserUsername || !recipient?.username) return null;
     
     const messagesRef = collection(firestore, 'messages');
     
-    // This query fetches messages where the current user is the sender AND the recipient is correct
-    // OR where the current user is the recipient AND the sender is correct.
     const q = query(
       messagesRef,
       or(
@@ -66,7 +62,6 @@ export default function ChatPage() {
   const messages: Message[] = useMemo(() => {
     if (!dbMessages || !user || !recipient || !currentUserUsername) return [];
     
-    // Filter messages on the client to only show the ones for the current conversation
     return dbMessages
       .filter(msg => 
         (msg.senderUsername === currentUserUsername && msg.recipientUsername === recipient.username) ||
@@ -77,27 +72,9 @@ export default function ChatPage() {
         content: msg.content,
         timestamp: msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString() : 'sending...',
         type: msg.senderId === user.uid ? 'me' : 'other',
-        status: 'read' // Placeholder status
+        status: 'read' 
       }));
   }, [dbMessages, user, recipient, currentUserUsername]);
-
-  const handleSendMessage = async (content: string) => {
-    if (!firestore || !user || !recipient || !currentUserUsername) {
-      console.error("Cannot send message: missing user, recipient, or firestore instance.");
-      return;
-    }
-
-    const messagesColRef = collection(firestore, 'messages');
-
-    addDocumentNonBlocking(messagesColRef, {
-      content,
-      senderId: user.uid,
-      senderUsername: currentUserUsername,
-      recipientId: recipient.uid,
-      recipientUsername: recipient.username,
-      timestamp: serverTimestamp(),
-    });
-  };
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -113,7 +90,6 @@ export default function ChatPage() {
     );
   }
 
-  // Stage 1: Select a recipient
   if (!recipient) {
     return (
        <SelectRecipient 
@@ -124,11 +100,9 @@ export default function ChatPage() {
     );
   }
 
-  // Stage 2: Show the chat layout for the selected recipient
   return (
     <ChatLayout
       messages={messages}
-      onSendMessage={handleSendMessage}
       recipientUsername={recipient.username}
       currentUserUsername={currentUserUsername}
     />
