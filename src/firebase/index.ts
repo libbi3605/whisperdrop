@@ -2,14 +2,11 @@
 
 import { useMemo } from 'react';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { app } from './config';
-
-// Custom hook to get the currently authenticated user
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { useFirebase } from './client-provider';
 
 function useAuth() {
-    const auth = getAuth(app);
+    const { auth } = useFirebase();
     const [user, loading, error] = useAuthState(auth);
 
     return useMemo(() => ({
@@ -18,6 +15,5 @@ function useAuth() {
         error
     }), [user, loading, error]);
 }
-
 
 export { useAuth };

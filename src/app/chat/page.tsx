@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import ChatLayout from '@/components/chat/chat-layout';
 import type { Message } from '@/lib/types';
-import { useAuth } from '@/firebase'; // Assuming useAuth hook is available
+import { useAuth } from '@/firebase';
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
