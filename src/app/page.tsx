@@ -8,7 +8,7 @@ export default function Home() {
       <div className="flex items-center gap-4 mb-4">
         <Ghost className="w-16 h-16 text-primary" />
         <h1 className="text-6xl md:text-7xl font-bold tracking-tighter bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
-          WhisperDrop
+          Wicker
         </h1>
       </div>
       <p className="max-w-md mb-8 text-lg text-muted-foreground">

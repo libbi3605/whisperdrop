@@ -13,7 +13,7 @@ export default function ChatHeader() {
             </Link>
         </Button>
         <h1 className="text-xl font-bold tracking-tight text-foreground">
-          WhisperDrop
+          Wicker
         </h1>
       </div>
       <div className="flex items-center gap-2 text-sm text-accent animate-pulse">

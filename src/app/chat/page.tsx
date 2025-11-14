@@ -25,7 +25,7 @@ export default function ChatPage() {
         {
             id: getNewId(),
             type: 'other',
-            content: 'Welcome to WhisperDrop. Messages sent here are ephemeral and will disappear after some time.',
+            content: 'Welcome to Wicker. Messages sent here are ephemeral and will disappear after some time.',
             timestamp: time,
             status: 'read',
         },
