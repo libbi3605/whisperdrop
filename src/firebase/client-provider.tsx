@@ -1,57 +1,26 @@
-
 'use client';
 
-import React, { createContext, useContext, useMemo } from 'react';
-import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
-import { app } from './config';
-import { FirebaseProvider, type FirebaseContextType } from './provider';
-import type { FirebaseApp } from 'firebase/app';
+import React, { useMemo, type ReactNode } from 'react';
+import { FirebaseProvider } from '@/firebase/provider';
+import { initializeFirebase } from '@/firebase';
 
-
-const FirebaseClientContext = createContext<FirebaseContextType | null>(null);
-
-export function FirebaseClientProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const firebaseContextValue = useMemo(() => {
-    const auth = getAuth(app);
-    const firestore = getFirestore(app);
-
-    if (process.env.NEXT_PUBLIC_EMULATORS_ENABLED === 'true') {
-      try {
-        connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-        connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
-      } catch (e) {
-        console.error('Error connecting to Firebase emulators. This might happen on hot reloads. ', e)
-      }
-    }
-    
-    return {
-      auth,
-      firestore,
-      app,
-    };
-  }, []);
-
-  if (!firebaseContextValue) {
-    // This can happen in a brief moment during Suspense, etc.
-    return null;
-  }
-
-  return (
-    <FirebaseClientContext.Provider value={firebaseContextValue}>
-      <FirebaseProvider value={firebaseContextValue}>{children}</FirebaseProvider>
-    </FirebaseClientContext.Provider>
-  );
+interface FirebaseClientProviderProps {
+  children: ReactNode;
 }
 
-export const useFirebase = () => {
-    const context = useContext(FirebaseClientContext);
-    if (context === null) {
-        throw new Error('useFirebase must be used within a FirebaseClientProvider');
-    }
-    return context;
+export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
+  const firebaseServices = useMemo(() => {
+    // Initialize Firebase on the client side, once per component mount.
+    return initializeFirebase();
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  return (
+    <FirebaseProvider
+      firebaseApp={firebaseServices.firebaseApp}
+      auth={firebaseServices.auth}
+      firestore={firebaseServices.firestore}
+    >
+      {children}
+    </FirebaseProvider>
+  );
 }

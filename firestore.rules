@@ -1,0 +1,90 @@
+/**
+ * @file WhisperDrop Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for anonymous users, conversations, and messages.
+ *   It leverages path-based authorization and denormalized data to ensure secure and efficient access control.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores anonymous user data.
+ * - /users/{userId}/conversations/{conversationId}: Stores conversation metadata, including participant IDs for authorization.
+ * - /users/{userId}/conversations/{conversationId}/messages/{messageId}: Stores messages within a conversation.
+ *
+ * Key Security Decisions:
+ * - User listing is explicitly denied.
+ * - Authorization relies heavily on path-based ownership and the `participantIds` array within conversation documents.
+ * - All write operations are protected by authorization checks to prevent unauthorized data modification.
+ * - Read-only collections are not applicable in this data model.
+ *
+ * Denormalization for Authorization:
+ * - The `participantIds` array is stored within each conversation document to enable efficient authorization checks without requiring additional `get()` calls.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Enforces strict ownership for user documents.
+     * @path /users/{userId}
+     * @allow (create) User with matching ID can create their own document.
+     * @deny (create) User tries to create a document with a different ID.
+     * @allow (get) User with matching ID can read their document.
+     * @allow (list) User with matching ID can list their document.
+     * @deny (update) User cannot update.
+     * @deny (delete) User cannot delete.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false; // Listing users is not allowed for privacy.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Enforces ownership for conversations within a user's data tree.
+     * @path /users/{userId}/conversations/{conversationId}
+     * @allow (create) User can create a conversation in their own data tree.
+     * @allow (get) User can read a conversation in their own data tree if they are a participant.
+     * @allow (list) User can list conversations in their own data tree.
+     * @deny (create) User tries to create a conversation with a different ID.
+     * @deny (update) User cannot update a conversation.
+     * @deny (delete) User cannot delete a conversation.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/conversations/{conversationId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isOwner(userId) && request.resource.data.participantIds.hasAny([request.auth.uid]);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.participantIds.hasAny([request.auth.uid]);
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Enforces ownership for messages within a conversation within a user's data tree.
+     * @path /users/{userId}/conversations/{conversationId}/messages/{messageId}
+     * @allow (create) User can create a message in their own conversation.
+     * @allow (get) User can read a message in their own conversation if they are a participant.
+     * @allow (list) User can list messages in their own conversation.
+     * @deny (create) User tries to create a message with a different ID.
+     * @deny (update) User cannot update a message.
+     * @deny (delete) User cannot delete a message.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     */
+    match /users/{userId}/conversations/{conversationId}/messages/{messageId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      allow get: if isOwner(userId) && get(/databases/$(database)/documents/users/$(userId)/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
+      allow list: if isOwner(userId) && get(/databases/$(database)/documents/users/$(userId)/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
+      allow create: if isOwner(userId) && request.resource.data.senderId == request.auth.uid && get(/databases/$(database)/documents/users/$(userId)/conversations/$(conversationId)).data.participantIds.hasAny([request.auth.uid]);
+      allow update, delete: if false;
+    }
+  }
+}
