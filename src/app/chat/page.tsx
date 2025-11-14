@@ -7,8 +7,10 @@ import ChatLayout from '@/components/chat/chat-layout';
 import SelectRecipient from '@/components/chat/select-recipient';
 import type { Message, MessageFromDb } from '@/lib/types';
 import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { doc, collection, query, where, getDocs, addDoc, serverTimestamp, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, serverTimestamp, orderBy, CollectionReference, DocumentData } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
 
 export default function ChatPage() {
   const { user, isUserLoading } = useUser();
@@ -65,7 +67,7 @@ export default function ChatPage() {
 
   // Real-time listener for messages
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !conversationId) return null;
+    if (!firestore || !conversationId || !user) return null;
     const conversationRef = doc(firestore, 'users', user.uid, 'conversations', conversationId);
     return query(collection(conversationRef, 'messages'), orderBy('timestamp', 'asc'));
   }, [firestore, conversationId, user]);
@@ -88,28 +90,20 @@ export default function ChatPage() {
   const handleSendMessage = async (content: string) => {
     if (!firestore || !user || !recipient || !conversationId) return;
 
-    try {
-      // Add message to sender's conversation
-      const senderConvRef = doc(firestore, 'users', user.uid, 'conversations', conversationId);
-      await addDoc(collection(senderConvRef, 'messages'), {
-        content,
-        senderId: user.uid,
-        recipientId: recipient.uid,
-        timestamp: serverTimestamp(),
-      });
+    const messageData = {
+      content,
+      senderId: user.uid,
+      recipientId: recipient.uid,
+      timestamp: serverTimestamp(),
+    };
 
-      // Add message to recipient's conversation
-      const recipientConvRef = doc(firestore, 'users', recipient.uid, 'conversations', conversationId);
-      await addDoc(collection(recipientConvRef, 'messages'), {
-        content,
-        senderId: user.uid,
-        recipientId: recipient.uid,
-        timestamp: serverTimestamp(),
-      });
-
-    } catch (error) {
-      console.error("Error sending message:", error);
-    }
+    // Add message to sender's conversation using non-blocking write
+    const senderMessagesColRef = collection(firestore, 'users', user.uid, 'conversations', conversationId, 'messages') as CollectionReference<DocumentData>;
+    addDocumentNonBlocking(senderMessagesColRef, messageData);
+    
+    // Add message to recipient's conversation using non-blocking write
+    const recipientMessagesColRef = collection(firestore, 'users', recipient.uid, 'conversations', conversationId, 'messages') as CollectionReference<DocumentData>;
+    addDocumentNonBlocking(recipientMessagesColRef, messageData);
   };
 
   useEffect(() => {
