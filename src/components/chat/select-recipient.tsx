@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -18,9 +17,10 @@ const formSchema = z.object({
 interface SelectRecipientProps {
   onRecipientSelect: (username: string) => void;
   currentUserUsername?: string;
+  error?: string | null;
 }
 
-export default function SelectRecipient({ onRecipientSelect, currentUserUsername }: SelectRecipientProps) {
+export default function SelectRecipient({ onRecipientSelect, currentUserUsername, error }: SelectRecipientProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -55,7 +55,8 @@ export default function SelectRecipient({ onRecipientSelect, currentUserUsername
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
+              {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                 Start Chat <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </form>
