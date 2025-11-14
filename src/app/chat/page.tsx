@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import ChatLayout from '@/components/chat/chat-layout';
 import type { Message } from '@/lib/types';
 import { useAuth } from '@/firebase';
 
 export default function ChatPage() {
   const { user, loading } = useAuth();
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   
   const handleSendMessage = (content: string) => {
@@ -14,17 +16,14 @@ export default function ChatPage() {
     console.log("Sending message:", content);
   };
 
-  if (loading) {
-    return <div>Loading...</div>; // Or a proper loading spinner
-  }
-
-  if (!user) {
-    // This is a fallback, ideally middleware should handle this
-    // For now, we can show a message or redirect
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
     }
-    return null;
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return <div>Loading...</div>; // Or a proper loading spinner
   }
 
   return <ChatLayout messages={messages} onSendMessage={handleSendMessage} />;
