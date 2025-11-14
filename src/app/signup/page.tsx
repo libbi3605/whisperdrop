@@ -11,8 +11,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from 'next/link';
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { useFirebase } from '@/firebase';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be at most 20 characters"),
@@ -22,6 +24,7 @@ const formSchema = z.object({
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const { auth, firestore } = useFirebase();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -41,14 +44,15 @@ export default function SignUpPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, values.password);
       const user = userCredential.user;
 
-      // Create a user document in Firestore
-      await setDoc(doc(firestore, "users", user.uid), {
+      // Create a user document in Firestore using the non-blocking function
+      const userDocRef = doc(firestore, "users", user.uid);
+      setDocumentNonBlocking(userDocRef, {
         username: values.username,
         uid: user.uid,
-      });
+      }, { merge: false });
       
       // Redirect to chat page
-      window.location.href = '/chat';
+      router.push('/chat');
 
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {

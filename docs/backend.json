@@ -4,20 +4,20 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents an anonymous user within the WhisperDrop application.",
+      "description": "Represents a user within the Wicker application.",
       "properties": {
-        "id": {
+        "uid": {
           "type": "string",
-          "description": "Unique identifier for the user entity."
+          "description": "Unique identifier for the user, matching Firebase Auth UID."
         },
-        "deviceId": {
+        "username": {
           "type": "string",
-          "description": "Unique device identifier for the user."
+          "description": "The user's chosen display name."
         }
       },
       "required": [
-        "id",
-        "deviceId"
+        "uid",
+        "username"
       ]
     },
     "Conversation": {
@@ -112,11 +112,11 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores anonymous user data. Includes 'deviceId'.",
+          "description": "Stores public user data, like username, for discoverability.",
           "params": [
             {
               "name": "userId",
-              "description": "Unique identifier for the anonymous user."
+              "description": "The user's unique ID, same as their Auth UID."
             }
           ]
         }
