@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -9,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from 'next/link';
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { app } from '@/firebase/config';
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useFirebase } from '@/firebase/client-provider';
 
 const formSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -19,7 +20,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
-  const auth = getAuth(app);
+  const { auth } = useFirebase();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -31,6 +32,7 @@ export default function LoginPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setError(null);
+    if (!auth) return;
     try {
       // We append a dummy domain to the username to use it as an email for Firebase Auth
       const email = `${values.username}@wicker.app`;
