@@ -16,7 +16,7 @@ import { useFirebase } from '@/firebase/client-provider';
 
 const formSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be at most 20 characters"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export default function SignUpPage() {
@@ -53,7 +53,10 @@ export default function SignUpPage() {
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         setError("Username already taken. Please choose another one.");
-      } else {
+      } else if (error.code === 'auth/weak-password') {
+        setError("Password is too weak. Please choose a stronger one (at least 6 characters).");
+      }
+      else {
         setError("Failed to create account. Please try again.");
       }
       console.error("Sign up error:", error);
