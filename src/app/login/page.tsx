@@ -33,6 +33,7 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
+    // Corrected Logic: Only redirect if the user is already logged in.
     if (!isUserLoading && user) {
       router.push('/chat');
     }
@@ -56,10 +57,21 @@ export default function LoginPage() {
     }
   }
 
-  if (isUserLoading || user) {
+  // Show a loading state while checking for an existing user session.
+  if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
+      </div>
+    );
+  }
+  
+  // If the user is already logged in, the useEffect will redirect them.
+  // We can render null or a loading indicator here as well to prevent a flash of the login form.
+  if(user){
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p>Redirecting...</p>
       </div>
     );
   }
