@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -24,7 +24,7 @@ const formSchema = z.object({
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [isUsernameTaken, setIsUsernameTaken] = useState(false);
-  const { auth, firestore } = useFirebase();
+  const { auth, firestore, user, isUserLoading } = useFirebase();
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -34,6 +34,12 @@ export default function SignUpPage() {
       password: "",
     },
   });
+
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/chat');
+    }
+  }, [user, isUserLoading]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setError(null);
@@ -53,9 +59,7 @@ export default function SignUpPage() {
         uid: user.uid,
       }, { merge: false });
       
-      // Redirect to chat page
-      router.push('/chat');
-
+      // Successful sign-up is handled by the useEffect above
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
         setError("Username already taken. Please choose another one or log in.");
@@ -68,6 +72,22 @@ export default function SignUpPage() {
       }
       console.error("Sign up error:", error);
     }
+  }
+
+  if (isUserLoading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center">
+            <p>Redirecting...</p>
+        </div>
+    );
   }
 
   return (
@@ -111,7 +131,7 @@ export default function SignUpPage() {
                   <Link href="/login">Login with existing account</Link>
                 </Button>
               )}
-              <Button type="submit" className="w-full" disabled={isUsernameTaken}>Create Account</Button>
+              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || isUsernameTaken}>Create Account</Button>
             </form>
           </Form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
