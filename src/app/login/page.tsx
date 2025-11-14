@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,7 +21,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
-  const { auth, isUserLoading, user } = useFirebase();
+  const { auth } = useFirebase();
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -32,12 +32,6 @@ export default function LoginPage() {
     },
   });
 
-  useEffect(() => {
-    if (!isUserLoading && user) {
-      router.push('/chat');
-    }
-  }, [user, isUserLoading]);
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setError(null);
     if (!auth) return;
@@ -45,7 +39,8 @@ export default function LoginPage() {
       // We append a dummy domain to the username to use it as an email for Firebase Auth
       const email = `${values.username}@wicker.app`;
       await signInWithEmailAndPassword(auth, email, values.password);
-      // Successful sign-in is handled by the useEffect above
+      // On successful sign-in, redirect to chat
+      router.push('/chat');
     } catch (error: any) {
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         setError("Invalid username or password.");
@@ -54,22 +49,6 @@ export default function LoginPage() {
       }
       console.error("Login error:", error);
     }
-  }
-
-  if (isUserLoading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center">
-        <p>Loading...</p>
-      </div>
-    );
-  }
-  
-  if(user){
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center">
-        <p>Redirecting...</p>
-      </div>
-    );
   }
 
   return (
