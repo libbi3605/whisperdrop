@@ -7,7 +7,7 @@ import ChatLayout from '@/components/chat/chat-layout';
 import SelectRecipient from '@/components/chat/select-recipient';
 import type { Message, MessageFromDb } from '@/lib/types';
 import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { doc, collection, query, where, getDocs, serverTimestamp, orderBy, addDoc, or } from 'firebase/firestore';
+import { doc, collection, query, where, serverTimestamp, orderBy, addDoc, or } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 
 export default function ChatPage() {
@@ -35,25 +35,11 @@ export default function ChatPage() {
       return;
     }
 
-    try {
-      const usersRef = collection(firestore, 'users');
-      const q = query(usersRef, where("username", "==", username));
-      const querySnapshot = await getDocs(q);
+    // For testing: bypass user existence check.
+    // Create a placeholder UID for the recipient.
+    const recipientUid = `temp_${username}`;
+    setRecipient({ username, uid: recipientUid });
 
-      if (querySnapshot.empty) {
-        setRecipientError("User not found. Please check the username.");
-        return;
-      }
-
-      const recipientData = querySnapshot.docs[0].data();
-      const recipientUid = recipientData.uid;
-      
-      setRecipient({ username, uid: recipientUid });
-
-    } catch (error) {
-      console.error("Error finding recipient:", error);
-      setRecipientError("Something went wrong while trying to find the user.");
-    }
   };
 
   // Real-time listener for messages between the current user and the recipient
