@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -20,7 +21,8 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
-  const { auth } = useFirebase();
+  const { auth } from useFirebase();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,7 +41,7 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, values.password);
       
       // Redirect to chat page
-      window.location.href = '/chat';
+      router.push('/chat');
 
     } catch (error: any) {
       setError("Invalid username or password.");
