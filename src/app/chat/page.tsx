@@ -23,7 +23,11 @@ export default function ChatPage() {
   }, [user, loading, router]);
 
   if (loading || !user) {
-    return <div>Loading...</div>; // Or a proper loading spinner
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   return <ChatLayout messages={messages} onSendMessage={handleSendMessage} />;
