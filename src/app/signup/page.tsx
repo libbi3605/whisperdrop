@@ -23,6 +23,7 @@ const formSchema = z.object({
 
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
+  const [isUsernameTaken, setIsUsernameTaken] = useState(false);
   const { auth, firestore } = useFirebase();
   const router = useRouter();
 
@@ -36,6 +37,7 @@ export default function SignUpPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setError(null);
+    setIsUsernameTaken(false);
     if (!auth || !firestore) return;
 
     try {
@@ -56,7 +58,8 @@ export default function SignUpPage() {
 
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        setError("Username already taken. Please choose another one.");
+        setError("Username already taken. Please choose another one or log in.");
+        setIsUsernameTaken(true);
       } else if (error.code === 'auth/weak-password') {
         setError("Password is too weak. Please choose a stronger one (at least 6 characters).");
       }
@@ -103,6 +106,11 @@ export default function SignUpPage() {
                 )}
               />
               {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+              {isUsernameTaken && (
+                <Button variant="secondary" className="w-full" asChild>
+                  <Link href="/login">Login with existing account</Link>
+                </Button>
+              )}
               <Button type="submit" className="w-full">Create Account</Button>
             </form>
           </Form>
