@@ -5,10 +5,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ChatLayout from '@/components/chat/chat-layout';
 import type { Message } from '@/lib/types';
-import { useAuth } from '@/firebase';
+import { useUser } from '@/firebase';
 
 export default function ChatPage() {
-  const { user, loading } = useAuth();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   
@@ -18,12 +18,12 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isUserLoading && !user) {
       router.push('/signup');
     }
-  }, [user, loading, router]);
+  }, [user, isUserLoading]);
 
-  if (loading || !user) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <p>Loading...</p>
