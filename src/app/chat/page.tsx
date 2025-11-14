@@ -7,7 +7,7 @@ import ChatLayout from '@/components/chat/chat-layout';
 import SelectRecipient from '@/components/chat/select-recipient';
 import type { Message, MessageFromDb } from '@/lib/types';
 import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { doc, collection, query, or, where, orderBy } from 'firebase/firestore';
+import { doc, collection, query, or, where, and, orderBy, getDocs } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 
 export default function ChatPage() {
@@ -46,11 +46,20 @@ export default function ChatPage() {
     
     const messagesRef = collection(firestore, 'messages');
     
+    // This query is now more specific to avoid listing all messages.
+    // It fetches messages where the current user is either the sender or the recipient
+    // AND the other party is the selected recipient.
     const q = query(
       messagesRef,
       or(
-        where('senderUsername', '==', currentUserUsername),
-        where('recipientUsername', '==', currentUserUsername)
+        and(
+            where('senderUsername', '==', currentUserUsername),
+            where('recipientUsername', '==', recipient.username)
+        ),
+        and(
+            where('senderUsername', '==', recipient.username),
+            where('recipientUsername', '==', currentUserUsername)
+        )
       ),
       orderBy('timestamp', 'asc')
     );
@@ -60,21 +69,16 @@ export default function ChatPage() {
   const { data: dbMessages } = useCollection<MessageFromDb>(messagesQuery);
 
   const messages: Message[] = useMemo(() => {
-    if (!dbMessages || !user || !recipient || !currentUserUsername) return [];
+    if (!dbMessages || !user) return [];
     
-    return dbMessages
-      .filter(msg => 
-        (msg.senderUsername === currentUserUsername && msg.recipientUsername === recipient.username) ||
-        (msg.senderUsername === recipient.username && msg.recipientUsername === currentUserUsername)
-      )
-      .map(msg => ({
+    return dbMessages.map(msg => ({
         id: msg.id,
         content: msg.content,
         timestamp: msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString() : 'sending...',
         type: msg.senderId === user.uid ? 'me' : 'other',
         status: 'read' 
       }));
-  }, [dbMessages, user, recipient, currentUserUsername]);
+  }, [dbMessages, user]);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
