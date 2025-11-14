@@ -45,8 +45,7 @@ export default function LoginPage() {
       // We append a dummy domain to the username to use it as an email for Firebase Auth
       const email = `${values.username}@wicker.app`;
       await signInWithEmailAndPassword(auth, email, values.password);
-      // Successful sign-in will be detected by the onAuthStateChanged listener,
-      // and the useEffect above will handle the redirect.
+      // Successful sign-in is handled by the useEffect above
     } catch (error: any) {
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         setError("Invalid username or password.");

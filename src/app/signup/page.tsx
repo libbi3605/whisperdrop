@@ -111,7 +111,7 @@ export default function SignUpPage() {
                   <Link href="/login">Login with existing account</Link>
                 </Button>
               )}
-              <Button type="submit" className="w-full">Create Account</Button>
+              <Button type="submit" className="w-full" disabled={isUsernameTaken}>Create Account</Button>
             </form>
           </Form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
