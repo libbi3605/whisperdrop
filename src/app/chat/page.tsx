@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import ChatLayout from '@/components/chat/chat-layout';
 import SelectRecipient from '@/components/chat/select-recipient';
 import type { Message } from '@/lib/types';
-import { useUser, useDoc } from '@/firebase';
+import { useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 
@@ -18,7 +18,9 @@ export default function ChatPage() {
   const [recipient, setRecipient] = useState<{ username: string; uid: string } | null>(null);
 
   // Fetch current user's profile
-  const userDocRef = user ? doc(firestore, 'users', user.uid) : null;
+  const userDocRef = useMemoFirebase(() => {
+    return user ? doc(firestore, 'users', user.uid) : null;
+  }, [user, firestore]);
   const { data: userData } = useDoc<{ username: string }>(userDocRef);
   const currentUserUsername = userData?.username;
 
