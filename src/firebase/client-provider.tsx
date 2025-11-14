@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
@@ -20,8 +21,12 @@ export function FirebaseClientProvider({
     const firestore = getFirestore(app);
 
     if (process.env.NEXT_PUBLIC_EMULATORS_ENABLED === 'true') {
-      connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-      connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+      try {
+        connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+        connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+      } catch (e) {
+        console.error('Error connecting to Firebase emulators. This might happen on hot reloads. ', e)
+      }
     }
     
     return {
@@ -32,6 +37,7 @@ export function FirebaseClientProvider({
   }, []);
 
   if (!firebaseContextValue) {
+    // This can happen in a brief moment during Suspense, etc.
     return null;
   }
 
