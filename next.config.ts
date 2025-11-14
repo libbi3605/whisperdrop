@@ -30,6 +30,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    NEXT_PUBLIC_EMULATORS_ENABLED: process.env.NODE_ENV === 'development' ? 'true' : 'false',
+  },
 };
 
 export default nextConfig;
