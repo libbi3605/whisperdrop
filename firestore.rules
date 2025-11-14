@@ -1,32 +1,23 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the requesting user is the document owner.
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Users can create their own user document, but cannot read, update, or delete other's documents.
-    // They can read their own document.
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.uid == userId;
-      allow list, update, delete: if false;
+      allow read, create: if isOwner(userId);
+      allow update, delete, list: if false;
+    }
 
-      // Conversations can be created, read, and listed by the owner.
-      // No updates or deletes are allowed to maintain conversation history.
-      match /conversations/{conversationId} {
-        allow get, list, create: if isOwner(userId);
-        allow update, delete: if false;
-
-        // Messages can be created, read, and listed by the conversation owner.
-        // No updates or deletes are allowed to maintain message history.
-        match /messages/{messageId} {
-          allow get, list, create: if isOwner(userId);
-          allow update, delete: if false;
-        }
-      }
+    match /messages/{messageId} {
+      allow write: if request.auth != null;
+      allow read: if request.auth != null && 
+                  (resource.data.senderUsername == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username ||
+                   resource.data.recipientUsername == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username);
+      allow list: if request.auth != null;
     }
   }
 }

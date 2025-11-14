@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -20,35 +21,6 @@
         "username"
       ]
     },
-    "Conversation": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Conversation",
-      "type": "object",
-      "description": "Represents a single conversation thread between two or more users.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the conversation."
-        },
-        "participantIds": {
-          "type": "array",
-          "description": "References to Users participating in the conversation. (Relationship: User N:N Conversation)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the conversation was created.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "participantIds",
-        "createdAt"
-      ]
-    },
     "Message": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Message",
@@ -59,13 +31,21 @@
           "type": "string",
           "description": "Unique identifier for the message."
         },
-        "conversationId": {
-          "type": "string",
-          "description": "Reference to Conversation. (Relationship: Conversation 1:N Message)"
-        },
         "senderId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Message)"
+          "description": "The UID of the user who sent the message."
+        },
+        "senderUsername": {
+          "type": "string",
+          "description": "The username of the user who sent the message."
+        },
+        "recipientId": {
+          "type": "string",
+          "description": "The UID of the user who will receive the message."
+        },
+        "recipientUsername": {
+          "type": "string",
+          "description": "The username of the user who will receive the message."
         },
         "content": {
           "type": "string",
@@ -75,25 +55,16 @@
           "type": "string",
           "description": "Timestamp indicating when the message was sent.",
           "format": "date-time"
-        },
-        "expirationTime": {
-          "type": "string",
-          "description": "Timestamp indicating when the message should expire and be deleted.",
-          "format": "date-time"
-        },
-        "isRead": {
-          "type": "boolean",
-          "description": "Indicates whether the message has been read by the recipient."
         }
       },
       "required": [
         "id",
-        "conversationId",
         "senderId",
+        "senderUsername",
+        "recipientId",
+        "recipientUsername",
         "content",
-        "timestamp",
-        "expirationTime",
-        "isRead"
+        "timestamp"
       ]
     }
   },
@@ -122,50 +93,21 @@
         }
       },
       {
-        "path": "/users/{userId}/conversations/{conversationId}",
-        "definition": {
-          "entityName": "Conversation",
-          "schema": {
-            "$ref": "#/backend/entities/Conversation"
-          },
-          "description": "Stores conversation metadata, including 'participantIds' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The user's unique ID."
-            },
-            {
-              "name": "conversationId",
-              "description": "Unique identifier for the conversation."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/conversations/{conversationId}/messages/{messageId}",
+        "path": "/messages/{messageId}",
         "definition": {
           "entityName": "Message",
           "schema": {
             "$ref": "#/backend/entities/Message"
           },
-          "description": "Stores messages within a conversation. Includes denormalized 'conversationId' and 'senderId' for authorization independence.",
+          "description": "Stores all messages in a single root collection.",
           "params": [
             {
-              "name": "userId",
-              "description": "The user's unique ID."
-            },
-            {
-              "name": "conversationId",
-              "description": "Unique identifier for the conversation."
-            },
-            {
               "name": "messageId",
-              "description": "Unique identifier for the message."
+              "description": "The unique ID for the message."
             }
           ]
         }
       }
-    ],
-    "reasoning": "This Firestore structure prioritizes user anonymity and ephemeral messaging by using path-based ownership for user data and conversations, and denormalization to avoid `get()` calls in security rules. \n\n*   `/users/{userId}`:  Each anonymous user is represented by a document in this collection.  The `userId` is generated client-side, ensuring no personally identifiable information is stored. Since the application focuses on anonymity, it's crucial to avoid storing any identifying user data on the backend.  The `deviceId` helps differentiate users using the same device. This supports QAPs because listing users is inherently restricted (the app doesn't need to list users, only create them or manage their own data). Authorization is based solely on `request.auth.uid`, which is assumed to be managed anonymously by Firebase Auth.\n*   `/users/{userId}/conversations/{conversationId}`: Each conversation is a subcollection of a user. The `participantIds` field lists all users in the conversation. This field is crucial for Authorization Independence.  By storing the participant IDs within each conversation document, security rules can verify user participation without needing to `get()` other documents.  Since User 1:N Conversation, we follow path-based ownership.\n*   `/users/{userId}/conversations/{conversationId}/messages/{messageId}`:  Each message belongs to a specific conversation and a specific user (sender). Includes denormalized `conversationId` and `senderId` for Authorization Independence. Since User 1:N Conversation and Conversation 1:N Message, we follow a hierarchical path based ownership. Expiration is handled by the client or a backend process that monitors `expirationTime`. This structure also supports QAPs; listing messages is restricted to participants of the conversation based on path and denormalized `participantIds`.\n\nAuthorization Independence:\n*   Conversation Access:  The `participantIds` array within each `/conversations/{conversationId}` document ensures that security rules can determine if a user is authorized to access the conversation without needing to fetch data from other collections.\n*   Message Access:  The `conversationId` and `senderId` within each `/messages/{messageId}` document allow security rules to verify the user's relationship to the message and conversation.\n\nQAPs (Rules are not Filters):\n*   User Collection: Listing users is not a feature, so QAPs do not apply.\n*   Conversation Collection: Listing conversations is limited to a single user's conversations, enforcing access only to conversations they participate in. The `participantIds` array allows filtering based on user membership.\n*   Message Collection:  Listing messages is similarly limited to a specific conversation, ensuring users only see messages from conversations they are a part of."
+    ]
   }
 }

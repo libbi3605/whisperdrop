@@ -12,6 +12,8 @@ export interface Message {
 export interface MessageFromDb {
   id: string;
   senderId: string;
+  senderUsername: string;
+  recipientUsername: string;
   content: string;
   timestamp: Timestamp;
 }

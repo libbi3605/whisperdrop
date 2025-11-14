@@ -7,10 +7,8 @@ import ChatLayout from '@/components/chat/chat-layout';
 import SelectRecipient from '@/components/chat/select-recipient';
 import type { Message, MessageFromDb } from '@/lib/types';
 import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { doc, collection, query, where, getDocs, serverTimestamp, orderBy, CollectionReference, DocumentData } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, serverTimestamp, orderBy, addDoc, or } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-
 
 export default function ChatPage() {
   const { user, isUserLoading } = useUser();
@@ -18,7 +16,6 @@ export default function ChatPage() {
   const router = useRouter();
 
   const [recipient, setRecipient] = useState<{ username: string; uid: string } | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [recipientError, setRecipientError] = useState<string | null>(null);
 
   // Fetch current user's profile
@@ -28,13 +25,9 @@ export default function ChatPage() {
   const { data: userData } = useDoc<{ username: string }>(userDocRef);
   const currentUserUsername = userData?.username;
 
-  // Function to create a consistent conversation ID
-  const createConversationId = (uid1: string, uid2: string) => {
-    return [uid1, uid2].sort().join('_');
-  };
 
   const handleRecipientSelect = async (username: string) => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !currentUserUsername) return;
     setRecipientError(null);
 
     if(username === currentUserUsername) {
@@ -56,8 +49,6 @@ export default function ChatPage() {
       const recipientUid = recipientData.uid;
       
       setRecipient({ username, uid: recipientUid });
-      const newConversationId = createConversationId(user.uid, recipientUid);
-      setConversationId(newConversationId);
 
     } catch (error) {
       console.error("Error finding recipient:", error);
@@ -65,45 +56,59 @@ export default function ChatPage() {
     }
   };
 
-  // Real-time listener for messages
+  // Real-time listener for messages between the current user and the recipient
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !conversationId || !user) return null;
-    const conversationRef = doc(firestore, 'users', user.uid, 'conversations', conversationId);
-    return query(collection(conversationRef, 'messages'), orderBy('timestamp', 'asc'));
-  }, [firestore, conversationId, user]);
+    if (!firestore || !currentUserUsername || !recipient) return null;
+    const messagesRef = collection(firestore, 'messages');
+    
+    // This query fetches messages where the current user is the sender AND the recipient is correct
+    // OR where the current user is the recipient AND the sender is correct.
+    const q = query(messagesRef, 
+      or(
+        where('senderUsername', '==', currentUserUsername),
+        where('recipientUsername', '==', currentUserUsername)
+      ),
+      orderBy('timestamp', 'asc')
+    );
+    return q;
+  }, [firestore, currentUserUsername, recipient]);
   
   const { data: dbMessages } = useCollection<MessageFromDb>(messagesQuery);
 
   const messages: Message[] = useMemo(() => {
-    if (!dbMessages || !user) return [];
-    return dbMessages.map(msg => ({
-      id: msg.id,
-      content: msg.content,
-      // Note: In a real app, you'd handle Firestore Timestamps more robustly
-      timestamp: msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString() : 'sending...',
-      type: msg.senderId === user.uid ? 'me' : 'other',
-      status: 'read' // Placeholder status
-    }));
-  }, [dbMessages, user]);
+    if (!dbMessages || !user || !recipient || !currentUserUsername) return [];
+    // Since the query fetches for both sides, we need to filter to only show messages for the selected conversation
+    return dbMessages.filter(msg => 
+        (msg.senderUsername === currentUserUsername && msg.recipientUsername === recipient.username) ||
+        (msg.senderUsername === recipient.username && msg.recipientUsername === currentUserUsername)
+      ).map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        timestamp: msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString() : 'sending...',
+        type: msg.senderId === user.uid ? 'me' : 'other',
+        status: 'read' // Placeholder status
+      }));
+  }, [dbMessages, user, recipient, currentUserUsername]);
 
 
   const handleSendMessage = async (content: string) => {
-    if (!firestore || !user || !recipient || !conversationId) return;
+    if (!firestore || !user || !recipient || !currentUserUsername) return;
 
     const messageData = {
       content,
       senderId: user.uid,
+      senderUsername: currentUserUsername,
       recipientId: recipient.uid,
+      recipientUsername: recipient.username,
       timestamp: serverTimestamp(),
     };
 
-    // Add message to sender's conversation using non-blocking write
-    const senderMessagesColRef = collection(firestore, 'users', user.uid, 'conversations', conversationId, 'messages') as CollectionReference<DocumentData>;
-    addDocumentNonBlocking(senderMessagesColRef, messageData);
-    
-    // Add message to recipient's conversation using non-blocking write
-    const recipientMessagesColRef = collection(firestore, 'users', recipient.uid, 'conversations', conversationId, 'messages') as CollectionReference<DocumentData>;
-    addDocumentNonBlocking(recipientMessagesColRef, messageData);
+    try {
+        const messagesColRef = collection(firestore, 'messages');
+        await addDoc(messagesColRef, messageData);
+    } catch(error) {
+        console.error("Error sending message:", error);
+    }
   };
 
   useEffect(() => {
@@ -120,8 +125,7 @@ export default function ChatPage() {
     );
   }
 
-  // If a recipient has not been selected, show the selection screen
-  if (!recipient || !conversationId) {
+  if (!recipient) {
     return (
        <SelectRecipient 
         onRecipientSelect={handleRecipientSelect} 
@@ -131,7 +135,6 @@ export default function ChatPage() {
     );
   }
 
-  // Once a recipient is selected, show the chat layout
   return (
     <ChatLayout
       messages={messages}
