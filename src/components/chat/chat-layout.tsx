@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef } from 'react';
@@ -9,9 +10,11 @@ import ChatInput from './chat-input';
 interface ChatLayoutProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
+  recipientUsername: string;
+  currentUserUsername?: string | null;
 }
 
-export default function ChatLayout({ messages, onSendMessage }: ChatLayoutProps) {
+export default function ChatLayout({ messages, onSendMessage, recipientUsername }: ChatLayoutProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,7 +33,7 @@ export default function ChatLayout({ messages, onSendMessage }: ChatLayoutProps)
 
   return (
     <div className="flex flex-col h-screen max-h-screen bg-background">
-      <ChatHeader />
+      <ChatHeader recipientUsername={recipientUsername} />
       <main ref={scrollAreaRef} className="flex-grow overflow-y-auto p-4 md:p-6">
         <ChatMessages messages={messages} />
       </main>
