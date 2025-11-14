@@ -82,7 +82,10 @@ export default function ChatPage() {
   }, [dbMessages, user, recipient, currentUserUsername]);
 
   const handleSendMessage = async (content: string) => {
-    if (!firestore || !user || !recipient || !currentUserUsername) return;
+    if (!firestore || !user || !recipient || !currentUserUsername) {
+      console.error("Cannot send message: missing user, recipient, or firestore instance.");
+      return;
+    }
 
     const messagesColRef = collection(firestore, 'messages');
 
@@ -100,7 +103,7 @@ export default function ChatPage() {
     if (!isUserLoading && !user) {
       router.push('/signup');
     }
-  }, [user, isUserLoading]);
+  }, [user, isUserLoading, router]);
 
   if (isUserLoading || !user || !currentUserUsername) {
     return (
