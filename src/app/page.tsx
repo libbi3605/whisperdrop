@@ -16,15 +16,20 @@ export default function Home() {
       </p>
       <div className="flex flex-col sm:flex-row items-center gap-4">
         <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8">
-          <Link href="/chat">
-            Enter Anonymously
+          <Link href="/signup">
+            Sign Up
           </Link>
         </Button>
-        <div className="flex items-center gap-2 text-sm text-accent">
+        <Button asChild size="lg" variant="outline" className="font-semibold px-8">
+          <Link href="/login">
+            Login
+          </Link>
+        </Button>
+      </div>
+       <div className="flex items-center gap-2 text-sm text-accent mt-4">
           <ShieldCheck className="w-5 h-5" />
           <span>End-to-End Encrypted</span>
         </div>
-      </div>
       <footer className="absolute bottom-4 text-xs text-muted-foreground">
         <p>Your privacy is our priority. No logs. No history. No identity.</p>
       </footer>
