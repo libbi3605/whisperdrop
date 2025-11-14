@@ -1,113 +1,134 @@
+'use client';
 
-"use client";
-
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import ChatLayout from '@/components/chat/chat-layout';
+import { useState, useMemo, useEffect } from 'react';
+import {
+  collection,
+  query,
+  where,
+  or,
+  Timestamp,
+  doc,
+  serverTimestamp,
+} from 'firebase/firestore';
+import {
+  useFirebase,
+  useUser,
+  useCollection,
+  useMemoFirebase,
+  useDoc,
+  addDocumentNonBlocking,
+} from '@/firebase';
 import SelectRecipient from '@/components/chat/select-recipient';
+import ChatLayout from '@/components/chat/chat-layout';
 import type { Message, MessageFromDb } from '@/lib/types';
-import { useUser, useMemoFirebase, useCollection, useDoc } from '@/firebase';
-import { doc, collection, query, or, where, and, orderBy, getDocs } from 'firebase/firestore';
-import { useFirebase } from '@/firebase';
+import { z } from 'zod';
+
+const recipientSchema = z.object({
+  username: z.string(),
+  uid: z.string(),
+});
+type Recipient = z.infer<typeof recipientSchema>;
 
 export default function ChatPage() {
-  const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
-  const router = useRouter();
+  const { user } = useUser();
+  const [recipient, setRecipient] = useState<Recipient | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [recipient, setRecipient] = useState<{ username: string; uid: string } | null>(null);
-  const [recipientError, setRecipientError] = useState<string | null>(null);
-
-  // Fetch current user's profile
   const userDocRef = useMemoFirebase(() => {
-    return user ? doc(firestore, 'users', user.uid) : null;
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userData } = useDoc<{ username: string }>(userDocRef);
   const currentUserUsername = userData?.username;
 
   const handleRecipientSelect = async (username: string) => {
-    if (!firestore || !user || !currentUserUsername) return;
-    setRecipientError(null);
+    setError(null);
+    if (!firestore || !currentUserUsername) return;
 
     if (username === currentUserUsername) {
-      setRecipientError("You can't start a conversation with yourself.");
+      setError('You cannot start a conversation with yourself.');
       return;
     }
-
-    // For testing: bypass user existence check.
-    // Create a placeholder UID for the recipient.
-    const recipientUid = `temp_${username}`;
-    setRecipient({ username, uid: recipientUid });
+    
+    // For testing, we create a dummy recipient if they don't exist.
+    setRecipient({ username: username, uid: `temp_${username}` });
   };
 
-  // Real-time listener for messages between the current user and the recipient
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUserUsername || !recipient?.username) return null;
-    
-    const messagesRef = collection(firestore, 'messages');
-    
-    // This query is now more specific to avoid listing all messages.
-    // It fetches messages where the current user is either the sender or the recipient
-    // AND the other party is the selected recipient.
+    if (!firestore || !currentUserUsername || !recipient?.username) {
+      return null;
+    }
     const q = query(
-      messagesRef,
+      collection(firestore, 'messages'),
       or(
-        and(
-            where('senderUsername', '==', currentUserUsername),
-            where('recipientUsername', '==', recipient.username)
-        ),
-        and(
-            where('senderUsername', '==', recipient.username),
-            where('recipientUsername', '==', currentUserUsername)
-        )
-      ),
-      orderBy('timestamp', 'asc')
+        where('senderUsername', '==', currentUserUsername),
+        where('recipientUsername', '==', currentUserUsername)
+      )
     );
     return q;
   }, [firestore, currentUserUsername, recipient?.username]);
 
-  const { data: dbMessages } = useCollection<MessageFromDb>(messagesQuery);
+  const { data: messagesFromDb, isLoading: messagesLoading } =
+    useCollection<MessageFromDb>(messagesQuery);
 
   const messages: Message[] = useMemo(() => {
-    if (!dbMessages || !user) return [];
-    
-    return dbMessages.map(msg => ({
+    if (!messagesFromDb || !currentUserUsername || !recipient?.username) return [];
+
+    return messagesFromDb
+      .filter(
+        (msg) =>
+          (msg.senderUsername === currentUserUsername &&
+            msg.recipientUsername === recipient.username) ||
+          (msg.senderUsername === recipient.username &&
+            msg.recipientUsername === currentUserUsername)
+      )
+      .map((msg) => ({
         id: msg.id,
         content: msg.content,
-        timestamp: msg.timestamp ? new Date(msg.timestamp.seconds * 1000).toLocaleTimeString() : 'sending...',
-        type: msg.senderId === user.uid ? 'me' : 'other',
-        status: 'read' 
-      }));
-  }, [dbMessages, user]);
+        type: msg.senderUsername === currentUserUsername ? 'me' : 'other',
+        timestamp:
+          msg.timestamp instanceof Timestamp
+            ? msg.timestamp.toDate().toLocaleTimeString()
+            : 'sending...',
+        status: 'read',
+      }))
+      .sort((a, b) => {
+        // A simple sort, assuming timestamps are valid after being sent
+        if (a.timestamp < b.timestamp) return -1;
+        if (a.timestamp > b.timestamp) return 1;
+        return 0;
+      });
+  }, [messagesFromDb, currentUserUsername, recipient?.username]);
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/signup');
-    }
-  }, [user, isUserLoading, router]);
+  const handleSendMessage = async (content: string) => {
+    if (!firestore || !user || !recipient || !currentUserUsername) return;
 
-  if (isUserLoading || !user || !currentUserUsername) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center">
-        <p>Loading...</p>
-      </div>
-    );
-  }
+    addDocumentNonBlocking(collection(firestore, 'messages'), {
+      content,
+      senderId: user.uid,
+      senderUsername: currentUserUsername,
+      recipientId: recipient.uid,
+      recipientUsername: recipient.username,
+      timestamp: serverTimestamp(),
+    });
+  };
 
   if (!recipient) {
     return (
-       <SelectRecipient 
-        onRecipientSelect={handleRecipientSelect} 
+      <SelectRecipient
+        onRecipientSelect={handleRecipientSelect}
         currentUserUsername={currentUserUsername}
-        error={recipientError}
+        error={error}
       />
     );
   }
 
   return (
     <ChatLayout
-      messages={messages}
       recipientUsername={recipient.username}
+      messages={messages}
+      onSendMessage={handleSendMessage}
       currentUserUsername={currentUserUsername}
     />
   );
