@@ -1,103 +1,97 @@
-
-"use client";
+'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import Link from 'next/link';
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { useFirebase } from '@/firebase';
 
-const formSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
+const loginSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-export default function LoginPage() {
-  const [error, setError] = useState<string | null>(null);
-  const { auth } = useFirebase();
-  const router = useRouter();
+type LoginFormData = z.infer<typeof loginSchema>;
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      username: "",
-      password: "",
-    },
+export default function LoginPage() {
+  const router = useRouter();
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setError(null);
-    if (!auth) return;
+  const onSubmit = async (data: LoginFormData) => {
+    setLoading(true);
+    setError('');
+
     try {
-      // We append a dummy domain to the username to use it as an email for Firebase Auth
-      const email = `${values.username}@wicker.app`;
-      await signInWithEmailAndPassword(auth, email, values.password);
-      // On successful sign-in, redirect to chat
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (authError) throw authError;
       router.push('/chat');
-    } catch (error: any) {
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        setError("Invalid username or password.");
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
-      console.error("Login error:", error);
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Login to Wicker</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Your username" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Your password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {error && <p className="text-sm font-medium text-destructive">{error}</p>}
-              <Button type="submit" className="w-full">Login</Button>
-            </form>
-          </Form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link href="/signup" className="text-primary hover:underline">
-              Sign Up
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
-    </main>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow">
+        <h1 className="text-2xl font-bold mb-6">Login</h1>
+        {error && <div className="text-red-600 mb-4">{error}</div>}
+        
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <Input
+              {...register('email')}
+              type="email"
+              placeholder="Email"
+              className="w-full"
+            />
+            {errors.email && (
+              <p className="text-red-600 text-sm">{errors.email.message}</p>
+            )}
+          </div>
+
+          <div>
+            <Input
+              {...register('password')}
+              type="password"
+              placeholder="Password"
+              className="w-full"
+            />
+            {errors.password && (
+              <p className="text-red-600 text-sm">{errors.password.message}</p>
+            )}
+          </div>
+
+          <Button type="submit" disabled={loading} className="w-full">
+            {loading ? 'Logging in...' : 'Login'}
+          </Button>
+        </form>
+
+        <p className="mt-4 text-center">
+          Don't have an account?{' '}
+          <Link href="/signup" className="text-blue-600 hover:underline">
+            Sign up
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }
